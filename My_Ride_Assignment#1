@@ -1,0 +1,701 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using Microsoft.Data.SqlClient;
+
+namespace MyRide
+{
+    public class Driver
+    {
+        public string name;
+        public int Dri_Age;
+        public string gender;
+        public string address;
+        public string ph_no;
+        public string curr_loc;
+        public string vehicle;
+        public string rating;
+        public bool availability;
+        public Vehicle vehi = new Vehicle();
+
+        public void SetDriver(string n, int age, string g, string add, string veh_type, string veh_mod, string lis_plate) //string avail, string dri_curr_loc)
+        {
+            this.name = n;
+            this.Dri_Age = age;
+            this.gender = g;
+            this.address = add;
+            vehi.setVehicle(veh_type, veh_mod, lis_plate);
+        }
+
+        public void UpdateAvailability(string avail)
+        {
+            if (avail == "Yes")
+            {
+                availability = true;
+            }
+            else if(avail == "No")
+            {
+                availability = false;
+            }
+            else
+            {
+                Console.WriteLine("Enter availability in Yes and No");
+                Console.ReadLine();
+            }
+        }
+
+        public string GetRating(string r)
+        {
+            rating = r;
+            return rating;
+        }
+
+        public void UpdateLocation(string dri_curr_loc)
+        {
+            this.curr_loc = dri_curr_loc;
+        }
+    }
+
+    public class Ride
+    {
+        public string start_loc;
+        public string end_loc;
+        public int price;
+        public Passenger passenger;
+        public Driver driv = new Driver();
+        public Admin adm = new Admin();
+
+        public double assignDriver(string start_loc, List<Driver> dr_lst, string v_type)
+        {
+            int dri_list_count = dr_lst.Count();
+            List<double> dis_list = new List<double>();
+            double square1, square2, total_diss_result, small = 0;
+
+            for (int i = 0; i < dri_list_count; i++)
+            {
+                square1 = Convert.ToInt32(dr_lst[i].curr_loc[0]) - Convert.ToInt32(start_loc[0]);
+                square2 = Convert.ToInt32(dr_lst[i].curr_loc[2]) - Convert.ToInt32(start_loc[2]);
+
+                total_diss_result = Math.Sqrt((square1 * square1) + (square2 * square2));
+                dis_list.Add(total_diss_result);
+            }
+
+            for (int i = 0; i < dri_list_count; i++)
+            {
+                for (int j = 1; j < dri_list_count; j++)
+                {
+                    if (dis_list[j] < dis_list[i] && dr_lst[j].availability == true && dr_lst[j].vehi.vehicle_type == v_type)
+                    {
+                        small = dis_list[j];
+                        return small;
+                    }
+                    else if (dis_list[j] < dis_list[i] && dr_lst[j].availability == false)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        return small;
+                    }
+                }
+            }
+           return small;
+        }
+
+        public void getLocation(string strt_loc, string end_Loc)
+        {
+            this.start_loc = strt_loc;
+            this.end_loc = end_Loc;
+
+            /*Location lc = new Location();
+            lc.SetLocation(Convert.ToInt32(start_loc), Convert.ToInt32(end_loc));*/
+
+            //assignDriver(start_loc);
+        }
+
+        public double Calculateprice(string v_type, string st_loc, string end_loc)
+        {
+            double sum1, sum2, sqrt_dist, Price = 0;
+            sum1 = (Convert.ToInt32(st_loc[0]) - Convert.ToInt32(end_loc[0]));
+            sum2 = (Convert.ToInt32(st_loc[2]) - Convert.ToInt32(end_loc[2]));
+            sqrt_dist = Math.Sqrt((sum1 * sum1) + (sum2 * sum2));
+
+            if (v_type == "Bike")
+            {
+                Price = ((sqrt_dist * 272) / 50) + 0.05;
+            }
+            else if (v_type == "Rikshaw")
+            {
+                Price = ((sqrt_dist * 272) / 35) + 0.1;
+            }
+            else if (v_type == "Car")
+            {
+                Price = ((sqrt_dist * 272) / 15) + 0.2;
+            }
+            else
+            {
+                Console.WriteLine("Sorry We don't have such type of vehicle service");
+            }
+
+            return Price;
+        }
+    }
+
+    public class Passenger
+    {
+        public string name;
+        public string phone_no;
+        public Ride ride = new Ride();
+        public Driver driver = new Driver();
+
+        public void BookRide(string st_loc, string end_loc)
+        {
+            ride.getLocation(st_loc, end_loc);
+        }
+
+        public void GiveRating(string r)
+        {
+            driver.GetRating(r);
+        }
+    }
+
+    public class Vehicle
+    {
+        public string vehicle_type;
+        public string model;
+        public string lisence_plate;
+
+        public void setVehicle(string vhl_type, string mod, string lis_plate)
+        {
+            vehicle_type = vhl_type;
+            model = mod;
+            lisence_plate = lis_plate;
+        }
+    }
+
+    public class Location
+    {
+        public float latitude;
+        public float longitude;
+
+        public void SetLocation(float lat, float lon) // This Location is the Riders DESTINITION Location
+        {
+            latitude = lat;
+            longitude = lon;
+        }
+    }
+
+    public class Admin
+    {
+        public List<Driver> dr_list = new List<Driver>();
+
+        public void Add_Driver(Driver d)
+        {
+            dr_list.Add(d);
+        }
+    }
+
+
+    class program
+    {
+        public static void Main(string[] args)
+        {
+            //DATA_BASE LINKING
+            string con_str = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=MyDataBase;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;ApplicationIntent=ReadWrite;MultiSubnetFailover=False";
+            SqlConnection conn = new SqlConnection(con_str);
+
+
+            Driver dri = new Driver();
+            Passenger pass = new Passenger();
+            Ride rid = new Ride();
+            Vehicle veh = new Vehicle();
+            Admin admin = new Admin();
+
+            Console.WriteLine("------WELCOME TO THE MYRIDE RIDING APPLICATION------");
+            //input = Console.ReadLine();
+
+            bool Over = false;
+            do
+            {
+                int driv_lst_count = 0;
+                driv_lst_count = admin.dr_list.Count();
+
+                string val;
+                Console.WriteLine("1. Book a Ride");
+                Console.WriteLine("2. Enter as Driver");
+                Console.WriteLine("3. Enter as Admin");
+                Console.WriteLine("4. Exit");
+                val = Console.ReadLine();
+
+
+                switch (val)
+                {
+                    case "1":
+                        Console.WriteLine("Enter name: ");
+                        pass.name = Console.ReadLine();
+
+                        Console.WriteLine("Enter Phone#: ");
+                        pass.phone_no = Console.ReadLine();
+
+                        Console.WriteLine("Enter start location: ");
+                        string start_loc = Console.ReadLine();
+
+                        Console.WriteLine("Enter end location: ");
+                        string end_loc = Console.ReadLine();
+
+                        Console.WriteLine("Enter Ride(vehicle) type: ");
+                        veh.vehicle_type = Console.ReadLine();
+
+                        string path3 = @"C:\C#(.NET)\practice 1\MyRide\ConsoleApp1\RiderFile.txt";
+                        FileStream fsout = new FileStream(path3, FileMode.Create, FileAccess.Write);
+                        StreamWriter SW = new StreamWriter(fsout);
+                        SW.WriteLine(pass.name);
+                        SW.WriteLine(pass.phone_no);
+                        SW.WriteLine(start_loc);
+                        SW.WriteLine(end_loc);
+                        SW.WriteLine(veh.vehicle_type);
+
+                        pass.BookRide(start_loc, end_loc);
+                        double price;
+                        price = rid.Calculateprice(veh.vehicle_type, start_loc, end_loc);
+                        Console.WriteLine($"Price of this ride is: {price}");
+                        SW.WriteLine(price);
+                        Console.ReadLine();
+
+                        char ch;
+                        Console.WriteLine("Enter 'Y' if you want to book the ride or Enter 'N' if you want to cancel your ride: ");
+                        ch = Console.ReadLine()[0];
+
+                        switch (ch)
+                        {
+                            case 'Y':
+                                double small;
+                                small = rid.assignDriver(start_loc, admin.dr_list, veh.vehicle_type);
+                                if (small > 0 || small < 0)
+                                {
+                                    Console.WriteLine("HAPPY TRAVEL!");
+                                    string rate;
+                                    Console.WriteLine("Give Rating Outof 5: ");
+                                    rate = Console.ReadLine();
+                                    pass.GiveRating(rate);
+                                    SW.WriteLine(rate);
+                                    SW.Close();
+                                    fsout.Close();
+                                    break;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Sorry No Driver is found!");
+                                    Console.ReadLine();
+                                    break;
+                                }
+                                //break;
+
+                            case 'N':
+                                Console.WriteLine("Your Ride has been canceled Successfully !");
+                                Console.ReadLine();
+                                break;
+                        }
+                        SW.Close();
+                        fsout.Close();
+                        break;
+
+                    case "2":
+                        string Name, Loc;
+                        Console.WriteLine("Enter your Name with your ID no.=  ");
+                        Name = Console.ReadLine();
+
+                        string path2 = @"C:\C#(.NET)\practice 1\MyRide\ConsoleApp1\DriverFile.txt";
+                        FileStream Fout = new FileStream(path2, FileMode.Create, FileAccess.Write);
+                        StreamWriter Sw = new StreamWriter(Fout);
+                        Sw.WriteLine(Name);
+
+                        for (int i = 0; i < driv_lst_count; i++)
+                        {
+                            if (admin.dr_list[i].name == Name)
+                            {
+                                Console.WriteLine($"Hello {Name}!");
+                                Console.WriteLine("Enter your Current Location: ");
+                                Loc = Console.ReadLine();
+                                admin.dr_list[i].UpdateLocation(Loc);
+                                // Writing in Drive.File
+                                Sw.WriteLine(Loc);
+
+                                string reply;
+                                Console.WriteLine("1. Update your Availability");
+                                Console.WriteLine("2. Change your Current Location");
+                                Console.WriteLine("3. Exit as driver and Go to the Main menu");
+                                reply = Console.ReadLine();
+
+                                switch (reply)
+                                {
+                                    case "1":
+                                        string aval;
+                                        Console.WriteLine("Please enter your Availability(Yes/No): ");
+                                        aval = Console.ReadLine();
+                                        admin.dr_list[i].UpdateAvailability(aval);
+                                        // Writing in Driver.File
+                                        Sw.WriteLine(aval);
+                                        Sw.Close();
+                                        Fout.Close();
+                                        break;
+
+                                    case "2":
+                                        Console.WriteLine("Update your Location: ");
+                                        Loc = Console.ReadLine();
+                                        admin.dr_list[i].UpdateLocation(Loc);
+                                        Sw.WriteLine(Loc);
+
+                                        string Avail = "";
+                                        Console.WriteLine("Please enter your Availability(Yes/No): ");
+                                        aval = Console.ReadLine();
+                                        admin.dr_list[i].UpdateAvailability(Avail);
+                                        Sw.WriteLine(aval);
+                                        Sw.Close();
+                                        Fout.Close();
+                                        break;
+
+                                    case "3":
+                                        break;
+
+
+                                }
+                            }
+                        }
+                        Sw.Close();
+                        Fout.Close();
+                        break;
+
+                    case "3":
+                        string opt;
+                        Console.WriteLine("1. Add Driver");
+                        Console.WriteLine("2. Remove Driver");
+                        Console.WriteLine("3. Update Driver");
+                        Console.WriteLine("4. Search Driver");
+                        Console.WriteLine("5. Exit as Admin");
+
+                        opt = Console.ReadLine();
+
+                        switch (opt)
+                        {
+                            case "1":
+                                Console.WriteLine("Enter Name: ");
+                                string name = Console.ReadLine();
+                                Console.WriteLine("Enter Age: ");
+                                int age = Console.Read();
+                                Console.ReadLine();
+                                Console.WriteLine("Enter Gender: ");
+                                string Gender = Console.ReadLine();
+                                Console.WriteLine("Enter Address: ");
+                                string address = Console.ReadLine();
+                                Console.WriteLine("Enter Vehicle Type: ");
+                                string vehicle_type = Console.ReadLine();
+                                Console.WriteLine("Enter Vehicle Model: ");
+                                string vehicle_model = Console.ReadLine();
+                                Console.WriteLine("Enter Vehicle Lisence Plate: ");
+                                string lisence_plate = Console.ReadLine();
+
+                                // File Creating
+                                string path1 = @"C:\C#(.NET)\practice 1\MyRide\ConsoleApp1\AdminFile.text";
+                                FileStream fout = new FileStream(path1, FileMode.Create, FileAccess.Write);
+                                StreamWriter sw = new StreamWriter(fout);
+                                sw.WriteLine("Driver Data Entered by Admin");
+                                sw.WriteLine(name);
+                                sw.WriteLine(age);
+                                sw.WriteLine(Gender);
+                                sw.WriteLine(address);
+                                sw.WriteLine(vehicle_type);
+                                sw.WriteLine(vehicle_model);
+                                sw.WriteLine(lisence_plate);
+
+                                sw.Close();
+                                fout.Close();
+
+                                Driver d = new Driver();
+                                d.SetDriver(name, age, Gender, address, vehicle_type, vehicle_model, lisence_plate);
+                                admin.Add_Driver(d);
+
+                                string insert_query = "INSERT INTO DriverTable (DRIVER_NAME, DRIVER_AGE, DRIVER_GRNDER, DRIVER_ADDRESS, DRIVER_VEHI, DRI_VEHI_MODEL, DRI_LIC_PLATE) VALUES (@DRIVER_NAME, @DRIVER_AGE, @DRIVER_GRNDER, @DRIVER_ADDRESS, @DRIVER_VEHI, @DRI_VEHI_MODEL, @DRI_LIC_PLATE)";
+                                SqlCommand cmd = new SqlCommand(insert_query, conn);
+
+                                cmd.Parameters.AddWithValue("@DRIVER_NAME", $"{name}");
+                                cmd.Parameters.AddWithValue("@DRIVER_AGE", $"{age}");
+                                cmd.Parameters.AddWithValue("@DRIVER_GRNDER", $"{Gender}");
+                                cmd.Parameters.AddWithValue("@DRIVER_ADDRESS", $"{address}");
+                                cmd.Parameters.AddWithValue("@DRIVER_VEHI", $"{vehicle_type}");
+                                cmd.Parameters.AddWithValue("@DRI_VEHI_MODEL", $"{vehicle_model}");
+                                cmd.Parameters.AddWithValue("@DRI_LIC_PLATE", $"{lisence_plate}");
+
+                                conn.Open();
+
+                                int insert_count = cmd.ExecuteNonQuery();
+                                if (insert_count >= 1)
+                                {
+                                    Console.WriteLine("1 Row has successfully inserted!");
+                                    conn.Close();
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Row has not been inserted!");
+                                    conn.Close();
+                                }
+                                conn.Close(); //sqldata client connecion is closed
+                                break;
+
+                            case "2":
+                                //Removing Driver Object fron driver_list
+                                Console.WriteLine("Enter the Driver name you want to remove: ");
+                                string dri_name = Console.ReadLine();
+
+                                for(int j=0; j < driv_lst_count; j++)
+                                {
+                                    if (dri_name == admin.dr_list[j].name)
+                                    {
+                                        admin.dr_list.Remove(admin.dr_list[j]);
+
+                                        Console.WriteLine("Do you want to delete any Driver info from the Driver Table???");
+                                        Console.WriteLine("Write 'Yes' to delete and 'No' not to delete");
+                                        string reply = Console.ReadLine();
+
+                                        switch (reply)
+                                        {
+                                            case "Yes":
+                                                //DELETING FROM DRIVER TABLE
+                                                Console.WriteLine("Which Id driver you want to delete??");
+                                                string driver_id = Console.ReadLine();
+                                                string delete_query = "DELETE FROM DriverTable WHERE Id = @Id";
+                                                SqlCommand sql_cmd = new SqlCommand(delete_query, conn);
+                                                sql_cmd.Parameters.AddWithValue("@Id", $"{driver_id}");
+                                                
+                                                conn.Open();
+                                                //SqlDataReader dr = sql_cmd.ExecuteReader();
+                                                int dlt_ans = sql_cmd.ExecuteNonQuery();
+                                                if (dlt_ans > 0)
+                                                {
+                                                Console.WriteLine("One Row deleted!!");
+                                                Console.ReadLine();
+                                                }
+                                                else
+                                                {
+                                                Console.WriteLine("No row deleted!!");
+                                                Console.ReadLine();
+                                                    }
+                                                conn.Close();
+                                                break;
+                                        }
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Sorry this driver does not Exist!!");
+                                        Console.ReadLine();
+                                        break;
+                                    }
+                                }
+                                break;
+
+
+                            case "3":
+                                Console.WriteLine("Enter your Current name: ");
+                                string name_id = Console.ReadLine();
+
+                                for (int i = 0; i < driv_lst_count; i++)
+                                {
+                                    if (admin.dr_list[i].name == name_id)
+                                    {
+                                        Console.WriteLine("Fill the info area that you want to Update for this driver: ");
+                                        Console.ReadLine();
+
+                                        Console.WriteLine("Enter Name: ");
+                                        string n = Console.ReadLine();
+                                        if (n == "")
+                                        {
+                                            n = admin.dr_list[i].name;
+                                        }
+
+                                        Console.WriteLine("Enter Age: ");
+                                        int a = Console.Read();
+
+                                        if (a == '\0')
+                                        {
+                                            a = admin.dr_list[i].Dri_Age;
+
+                                        }
+                                        Console.ReadLine();
+
+                                        Console.WriteLine("Enter Gender: ");
+                                        string Gndr = Console.ReadLine();
+                                        if (Gndr == "")
+                                        {
+                                            Gndr = admin.dr_list[i].gender;
+                                        }
+
+                                        Console.WriteLine("Enter Address: ");
+                                        string ad = Console.ReadLine();
+                                        if (ad == "")
+                                        {
+                                            ad = admin.dr_list[i].address;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Type: ");
+                                        string v_type = Console.ReadLine();
+                                        if (v_type == "")
+                                        {
+                                            v_type = admin.dr_list[i].vehi.vehicle_type;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Model: ");
+                                        string v_mod = Console.ReadLine();
+                                        if (v_mod == "")
+                                        {
+                                            v_mod = admin.dr_list[i].vehi.model;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Lisence Plate: ");
+                                        string lis_plt = Console.ReadLine();
+                                        if (lis_plt == "")
+                                        {
+                                            lis_plt = admin.dr_list[i].vehi.lisence_plate;
+                                        }
+
+                                        admin.dr_list[i].SetDriver(n, a, Gndr, ad, v_type, v_mod, lis_plt);
+
+                                        int dr_id = (i + 1);
+                                        string update_query = "UPDATE DriverTable SET DRIVER_NAME = @DRIVER_NAME , DRIVER_AGE = @DRIVER_AGE, DRIVER_GRNDER = @DRIVER_GRNDER , DRIVER_ADDRESS = @DRIVER_ADDRESS, DRIVER_VEHI = @DRIVER_VEHI, DRI_VEHI_MODEL = @DRI_VEHI_MODEL, DRI_LIC_PLATE = @DRI_LIC_PLATE WHERE Id = @Id";
+                                        SqlCommand sqlcmd = new SqlCommand(update_query, conn);
+
+                                        sqlcmd.Parameters.AddWithValue("@DRIVER_NAME", $"{n}");
+                                        sqlcmd.Parameters.AddWithValue("@DRIVER_AGE", $"{a}");
+                                        sqlcmd.Parameters.AddWithValue("@DRIVER_GRNDER", $"{Gndr}");
+                                        sqlcmd.Parameters.AddWithValue("@DRIVER_ADDRESS", $"{ad}");
+                                        sqlcmd.Parameters.AddWithValue("@DRIVER_VEHI", $"{v_type}");
+                                        sqlcmd.Parameters.AddWithValue("@DRI_VEHI_MODEL", $"{v_mod}");
+                                        sqlcmd.Parameters.AddWithValue("@DRI_LIC_PLATE", $"{lis_plt}");
+                                        sqlcmd.Parameters.AddWithValue("@Id", $"{dr_id}");
+                                        
+                                        conn.Open();
+
+                                        int update_count = sqlcmd.ExecuteNonQuery();
+                                        if (update_count >= 1)
+                                        {
+                                            Console.WriteLine("1 Row has successfully Updated!");
+                                            conn.Close();
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Row has not been Updated!");
+                                            conn.Close();
+                                        }
+                                        conn.Close(); //sqldata client connecion is closed
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("You Entered wrong name!!");
+                                        Console.ReadLine();
+                                        break;
+                                    }
+                                }
+                                break;
+
+                            case "4":
+                                Console.WriteLine("Enter your Current name: ");
+                                string n_id = Console.ReadLine();
+
+                                for (int i = 0; i < driv_lst_count; i++)
+                                {
+                                    if (admin.dr_list[i].name == n_id)
+                                    {
+                                        Console.WriteLine("Fill the info of driver you want to Search: ");
+                                        Console.ReadLine();
+
+                                        Console.WriteLine("Enter Name: ");
+                                        string n = Console.ReadLine();
+                                        if (n == "")
+                                        {
+                                            n = admin.dr_list[i].name;
+                                        }
+
+                                        Console.WriteLine("Enter Age: ");
+                                        int ag = Console.Read();
+                                        if (ag == '\0')
+                                        {
+                                            ag = admin.dr_list[i].Dri_Age;
+
+                                        }
+                                        Console.ReadLine();
+
+                                        Console.WriteLine("Enter Gender: ");
+                                        string Gnd = Console.ReadLine();
+                                        if (Gnd == "")
+                                        {
+                                            Gnd = admin.dr_list[i].gender;
+                                        }
+
+                                        Console.WriteLine("Enter Address: ");
+                                        string ad = Console.ReadLine();
+                                        if (ad == "")
+                                        {
+                                            ad = admin.dr_list[i].address;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Type: ");
+                                        string v_type = Console.ReadLine();
+                                        if (v_type == "")
+                                        {
+                                            v_type = admin.dr_list[i].vehi.vehicle_type;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Model: ");
+                                        string v_mod = Console.ReadLine();
+                                        if (v_mod == "")
+                                        {
+                                            v_mod = admin.dr_list[i].vehi.model;
+                                        }
+
+                                        Console.WriteLine("Enter Vehicle Lisence Plate: ");
+                                        string lis_plt = Console.ReadLine();
+                                        if (lis_plt == "")
+                                        {
+                                            lis_plt = admin.dr_list[i].vehi.lisence_plate;
+                                        }
+
+                                        admin.dr_list[i].SetDriver(n, ag, Gnd, ad, v_type, v_mod, lis_plt);
+
+                                        Console.WriteLine("-----------------------------------------------------------");
+                                        Console.WriteLine("Name  Age  Gender  Address  V.type  V.model  V.license");
+                                        Console.WriteLine("-----------------------------------------------------------");
+                                        Console.WriteLine($"{admin.dr_list[i].name}   {admin.dr_list[i].Dri_Age}   {admin.dr_list[i].gender}   {admin.dr_list[i].address}   {admin.dr_list[i].vehi.vehicle_type}   {admin.dr_list[i].vehi.model}   {admin.dr_list[i].vehi.lisence_plate}");
+                                        Console.WriteLine("-----------------------------------------------------------");
+                                        Console.ReadLine();
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("You Entered wrong name!!");
+                                        Console.ReadLine();
+                                        break;
+                                    }
+                                }
+                                break;
+
+                            case "5":
+                                Console.WriteLine("Press Enter to Exit as Admin");
+                                Console.ReadLine();
+                                break;
+                        }
+                        break;
+
+                    case "4":
+                        Over = true;
+                        break;
+                }
+            } while (Over != true);
+        }
+    }
+}
+
+
